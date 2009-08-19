@@ -90,7 +90,7 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
       $entry['description']  = '  <div id="hopper-storeshifts-time" class="hopper-event-time">';
       $entry['description'] .= '    <div class="hopper-label">time</div>';
       $entry['description'] .= '    <div class="hopper-value">';
-      $entry['description'] .= '      <div class="hopper-date-date">' . date('l - M j Y') . '</div>';
+      $entry['description'] .= '      <div class="hopper-date-date">' . date('l - M j Y', $start_time) . '</div>';
       $entry['description'] .= '      <div class="hopper-date-separator-date-time">: </div>';
       $entry['description'] .= '      <div class="hopper-date-time-from">' . date('g:i A', $start_time) . '</div>';
       $entry['description'] .= '      <div class="hopper-date-time-separator-from-to"> - </div>';
