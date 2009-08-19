@@ -59,7 +59,7 @@ function hopper_feed_list() {
   $feeds = array ();
   $feed_dir = dir('feeds');
   while (false !== ($entry = $feed_dir->read())) {
-    if (is_file('feeds/'.$entry) && (preg_match('/\.php$/', $entry))) {
+    if (is_file('feeds/'.$entry) && (preg_match('/\.php$/i', $entry)) && (!preg_match('/.*-auth.php/i', $entry))) {
       $feeds[]['name'] = preg_replace('/^(.*).php$/', '\1', $entry);
     }
   }
