@@ -1,2 +1,3 @@
 The Hopper provides data feeds which help to organize the operations of the Grainery Organic Food Co-op
 Info on the Grainery is available at http://thegrainery.wikispaces.com
+The Hopper uses the Zend Framework; this must be installed in a subdirectory of one of the php include path elements or in the root directory of your installation of the Hopper.  It will look for a directory containing a directory named "Zend".
