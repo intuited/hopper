@@ -4,6 +4,24 @@
  * Produce a feed indicating whether upcoming store shifts are filled.
  */
 
+function storeshifts_info() {
+  $info  = '<div id="hopper-feed-storeshift-info">';
+  $info .= '  Publish the filled or unfilled status of upcoming store shifts.';
+  $info .= '  <div class="hopper-feed-info-options">';
+  $info .= '    <div class="hopper-label">Options</div>';
+  $info .= '    <div class="hopper-content"><ul>';
+  $info .= '      <li>';
+  $info .= '        <div class="hopper-label">date</div>';
+  $info .= '        <div class="hopper-content">';
+  $info .= '          if set to "starttime" (the default), each shift will have its lastUpdate field set to the start time of the shift.<br />';
+  $info .= '          if set to "reverse-enumerated", the lastUpdate field of chronologically consecutive shifts will be set to decreasing values, so that they will be listed in the correct order when presented as blog posts.';
+  $info .= '        </div>';
+  $info .= '      </li>';
+  $info .= '    </ul></div> <!-- /.hopper-content -->';
+  $info .= '  </div> <!-- /.hopper-feed-info-options -->';
+  $info .= '</div> <!-- /.hopper-feed-storeshift-info -->';
+}
+
 /**
  * @function
  * Generate the feed to stdout.
@@ -65,6 +83,13 @@ function storeshifts_get_calendar_event_feed() {
 function storeshifts_parse_event_feed($calendarEventFeed) {
   $entries = array();
 
+  // If the date argument is set to 'starttime', then the lastUpdate field of entries will be set to the shift's start time.
+  // The default is to enumerate them in reverse order so that they will appear in forward chronological order when interpreted as blog posts.
+  if (array_key_exists('date', $_GET)) {
+    $shift_lastupdate = $_GET['date'];
+  }
+  else $shift_lastupdate = 'starttime';
+
   foreach($calendarEventFeed as $event) {
     if ($event->recurrence) {
       // Check whether or not the shift is filled
@@ -74,10 +99,10 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
       $start_time  = strtotime($event->when[0]->startTime);
       $finish_time = strtotime($event->when[0]->endTime);
 
+      // Set up fields common to both filled and unfilled shifts
+
       // Set the entry timestamp
       $entry['lastUpdate'] = $start_time;
-
-      // Set up fields common to both filled and unfilled shifts
 
       // This should link to the event for those logged in to gmail with access to the calendar.
       // It is used to anchor the 'title' element.
@@ -122,6 +147,14 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
 
   // Sort the array of shifts by timestamp
   ksort($entries);
+
+  // Set each entry's lastUpdate field to reverse-enumerated timestamps.
+  if ($shift_lastupdate == 'reverse-enumerated') {
+    $last_update_enumeration = time();
+    foreach ($entries as &$entry) {
+      $entry['lastUpdate'] = $last_update_enumeration--;
+    }
+  }
 
   return $entries;
 }
