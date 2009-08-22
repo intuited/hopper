@@ -23,13 +23,16 @@ hopper_router();
  * Parse http parameters and react appropriately
  */
 function hopper_router() {
+  // Get a list of available feeds
+  $feeds = hopper_feed_list();
 
   // Provide a requested feed.
   if ($feed = $_GET['feed']) {
-    if (file_exists('feeds/'.$feed.'.php')) {
-      require_once('feeds/'.$feed.'.php');
+
+    if (in_array($feed, $feeds)) {
+      require_once('feeds/'.$feed.'/'.$feed.'.php');
       // the _produce_feed functions handle the entire http request including headers.
-      call_user_func($feed."_produce_feed", $feed);
+      call_user_func($feed."_produce_feed");
     }
     else {
       // For invalid feed requests, provide info on available feeds.
@@ -55,13 +58,24 @@ function hopper_router() {
  * ##++  Get a description of each feed and add it to the $feeds array.
  */
 function hopper_feed_list() {
-  // Build a list of feeds based on the contents of the feed directory
-  $feeds = array ();
+  // Get a list of available feeds
+  $feeds = array();
+  // Add the names of all non-hidden directories containing a .php file with the same name
   $feed_dir = dir('feeds');
   while (false !== ($entry = $feed_dir->read())) {
-    if (is_file('feeds/'.$entry) && (preg_match('/\.php$/i', $entry)) && (!preg_match('/.*-auth.php/i', $entry))) {
-      $feeds[]['name'] = preg_replace('/^(.*).php$/', '\1', $entry);
-    }
+    // Exclude '.', '..', hidden files
+    if (!preg_match('/^\./', $entry) && is_dir("feeds/$entry") && file_exists("feeds/$entry/$entry.php")) $feeds[] = $entry;
+  }
+  $feed_dir->close();
+
+  return $feeds;
+}
+
+function info_list_feeds() {
+  $feeds = hopper_feed_list();
+  $feed_info = array();
+  foreach ($feeds as $feed) {
+    $feed_info[] = array('name' => $feed);
   }
 
   // Provide info on each feed in the feeds directory
@@ -86,14 +100,14 @@ function hopper_info($details) {
       case 'missing':
         $classes[] = 'missing';
         $classes[] = $details['argument'];
-        $message = "You can't access the Hopper without choosing a feed.";
-        $details = hopper_feed_list();
+        $message = "You can't access the Hopper without choosing a feed.<br />Available feeds:";
+        $details = info_list_feeds();
         break;
       case 'invalid':
         $classes[] = 'invalid';
         $classes[] = $details['argument'];
-        $message = 'The feed you selected, '.$details['feed'].", doesn't exist.";
-        $details = hopper_feed_list();
+        $message = 'The feed you selected, '.$details['feed'].", doesn't exist.<br />Available feeds:";
+        $details = info_list_feeds();
         break;
       }
       break;
@@ -105,7 +119,7 @@ function hopper_info($details) {
     case 'feeds':
       $classes[] = 'feeds';
       $message = 'The Hopper provides the following feeds';
-      $details = hopper_feed_list();
+      $details = info_list_feeds();
       break;
     default:
       $classes[] = 'general';

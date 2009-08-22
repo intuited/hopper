@@ -2,7 +2,8 @@
 /**
  * @file
  * Generates a list of available feeds.
- * The variable $feeds is an array containing elements of the form
+ * The variable $feeds contains a list of feeds.
+ * The variable $feed_info is an array containing elements of the form
  *   'name' => the name of the feed
  * ##++  Output each feed's description.
  */
@@ -10,7 +11,7 @@
 
 <ul id="hopper-feed-list">
 
-  <?php foreach ($feeds as $feed): ?>
+  <?php foreach ($feed_info as $feed): ?>
     <li class="hopper-feed-list-item"><?php print $feed['name'] ?></li>
   <?php endforeach ?>
 
