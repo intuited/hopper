@@ -80,4 +80,31 @@ function hopper_info($details) {
   info_print_info($details);
 }
 
+/**
+ * @function
+ *  Returns the base part of the URL
+ *  Ripped from Drupal's bootstrap.inc:conf_init() function
+ *  ##++  organize this
+ */
+function hopper_get_base_url() {
+  // Create base URL
+  $base_root = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https' : 'http';
+
+  $base_url = $base_root .= '://'. $_SERVER['HTTP_HOST'];
+
+  // $_SERVER['SCRIPT_NAME'] can, in contrast to $_SERVER['PHP_SELF'], not
+  // be modified by a visitor.
+  if ($dir = trim(dirname($_SERVER['SCRIPT_NAME']), '\,/')) {
+    $base_path = "/$dir";
+    $base_url .= $base_path;
+    $base_path .= '/';
+  }
+  else {
+    $base_path = '/';
+  }
+
+  return $base_url;
+}
+
+
 ?>

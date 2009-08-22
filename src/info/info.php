@@ -84,3 +84,13 @@ function info_list_feeds() {
   return ob_get_clean();
 }
 
+/**
+ * @function
+ *  Return a string containing a rendered HTML link containing a Hopper web address
+ * @param $arguments a string containing variables to be appended to the link.
+ *  must include the opening ?
+ */
+function info_render_hopper_link($arguments = '') {
+  return '<a href="' . hopper_get_base_url() . $arguments . '">' . hopper_get_base_url() . $arguments . '</a>';
+}
+

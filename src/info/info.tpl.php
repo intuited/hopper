@@ -10,6 +10,7 @@
       <div id="hopper-info-details"><?php print $details ?></div>
     </div>
     <div class="hopper-footer">
+      For general info on the Hopper, access <?php print info_render_hopper_link() ?>.<br />
       Server space for the Hopper is graciously provided by <a href="http://freecaine.ca">the FreeCAINE community wireless project</a>.<br />
       The Hopper is copyright 2009 Ted Tibbetts and licensed freely under the <a href="http://www.gnu.org/copyleft/gpl.html">GNU Public License</a>.<br />
     </div>
