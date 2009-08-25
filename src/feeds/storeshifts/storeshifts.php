@@ -58,16 +58,28 @@ function storeshifts_get_calendar_event_feed() {
   $gdataCal = new Zend_Gdata_Calendar($client);
 
   // Set up a query to get event info for the default calendar
-  // Check shifts between now and a week from now
-  $startDate = date('c');
-  $endDate = date('c', time() + 3600*24*7);
   $query = $gdataCal->newEventQuery();
+
+  // Retrieve shifts whose start time is after the beginning of today
+  $preg_match_iso_8601 = '/(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)([+-])(\d+):(\d+)/';
+  $preg_replace_mask_time = '$1-$2-$3T00:00:00$7$8:$9';
+  ##~~  trace( '$preg_match_iso_8601: '."$preg_match_iso_8601  " . '$preg_replace_mask_time: '."$preg_replace_mask_time\n" );
+  ##~~  trace( '$startDate: '."$startDate\n" );
+  $startDate = preg_replace($preg_match_iso_8601, $preg_replace_mask_time, date('c'));
+  $query->setStartMin($startDate);
+
+  // ...and before the end of the seventh day from today
+  $endDate = preg_replace($preg_match_iso_8601, $preg_replace_mask_time, date('c', time() + 3600*24*8));
+  $query->setStartMax($endDate);
+
+  // Sort them by start time
+  $query->setOrderby('starttime');
+
   $query->setUser('default');
   $query->setVisibility('private');
   $query->setProjection('full');
-  $query->setOrderby('starttime');
-  $query->setStartMin($startDate);
-  $query->setStartMax($endDate);
+  ##~~  // Poorly documented but would seem to eliminate non-recurring events.  ##!! confirm this
+  ##~~  $query->setSingleEvents(false);
   $eventFeed = $gdataCal->getCalendarEventFeed($query);
 
   return $eventFeed;
@@ -93,11 +105,22 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
   foreach($calendarEventFeed as $event) {
     if ($event->recurrence) {
       // Check whether or not the shift is filled
-      $shift_filled = preg_match('/Grainery.*shift/i', $event->title->text);
+      // The criteria here is simply (along with the fact that it is a recurring event)
+      //   that it contain the words "name" and "number".
+      $shift_filled = 
+        !(   preg_match('/name/i',   $event->title->text) 
+          && preg_match('/number/i', $event->title->text)
+        );
+
+      trace('$event->title->text: '.$event->title->text."\n"
+        , '$shift_filled: '.$shift_filled."\n"
+      );
 
       // Convert the RFC 3339 formatted time into a numeric timestamp
       $start_time  = strtotime($event->when[0]->startTime);
+      trace('$start_time: '.date('c', $start_time)."\n");
       $finish_time = strtotime($event->when[0]->endTime);
+      trace('$finish_time: '.date('c', $finish_time)."\n");
 
       // Set up fields common to both filled and unfilled shifts
 
@@ -142,6 +165,14 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
       $entry['description'] .= '</div>';
 
       $entries["$start_time"] = $entry;
+    }
+    else {
+      ##--  Test to see if the setSingleEvents method used in the previous function has the suspected effect.
+      trace('storeshifts_parse_event_feed: Non-recurring event was retrieved.'
+        . 'Start time: ' . $event->when[0]->startTime
+        ##~~  . '  Details:'."\n", $event
+        , "\n"
+      );
     }
   }
 

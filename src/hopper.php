@@ -10,6 +10,11 @@
 require_once('misc.php');
 find_zend();
 
+// Quick-and-dirty tracing
+if ($_SERVER['HTTP_HOST'] == 'localhost') {
+  require_once('trace/trace.php');
+}
+
 // Issue standard http headers that disable caching
 header("Expires: Sun, 19 Nov 1978 05:00:00 GMT");
 header("Last-Modified: ". gmdate("D, d M Y H:i:s") ." GMT");

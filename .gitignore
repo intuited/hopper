@@ -1,3 +1,5 @@
 *.sw*
 *-auth.php
 auth.php
+*.auth
+/src/traces

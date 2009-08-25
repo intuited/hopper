@@ -1,0 +1,47 @@
+##
+# Contains configuration directives compatible with Apache 2.2.
+
+# Set the default handler.
+# This will apply to all subdirectories of the directory containing this .htaccess file.
+DirectoryIndex hopper.php
+
+# this doesn't get applied until after the access checking is done
+#   so attempts to access the index file via the directory without a trailing slash will fail
+#   even with this directive.
+# for this reason it's required to explicitly allow accesses of the root directory.
+# unfortunately RewriteRules don't seem to be applied to the the root directory whether or not a trailing slash was used
+#   without using RewriteBase, which requires knowledge of the name of the directory containing this .htaccess file.
+DirectorySlash on
+
+# Prevent directory indexing
+Options -Indexes
+
+# Prevent access to all files except the main index.
+<FilesMatch ".*">
+  Order deny,allow
+  Deny from all
+</FilesMatch>
+
+# Allow access to the main hopper script
+<Files "hopper.php">
+  Allow from all
+</Files>
+
+# Allow access to the main hopper script via the index
+<Files "">
+  Allow from all
+</Files>
+
+# Allow access to the main hopper script via the index without the trailing slash
+# This needs to be set differently depending on the name of the directory containing this file (.htaccess)
+# This is because permissions checking for some reason takes place in an earlier phase of Apache configuration than mod_dir's effects.
+#   So when the Files directive is activated, the filename may be a directory name that will have a trailing slash applied to it.
+#   For this reason files named "src" or "hopper" should not be created in the Hopper files heirarchy.
+<Files src>
+  Allow from all
+</Files>
+
+# Similar measures being taken for the case where the directory name is "hopper".
+<Files hopper>
+  Allow from all
+</Files>
