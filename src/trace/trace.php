@@ -72,6 +72,32 @@ class Tracer {
   }
 
   /**
+   * Calls var_dump for each argument in succession.
+   */
+  function trace_dump() {
+    $args = func_get_args();
+
+    ob_start();
+    foreach ($args as $arg) {
+      call_user_func('var_dump', $arg);
+    }
+    file_put_contents($this->target, ob_get_clean(), FILE_APPEND);
+  }
+
+  /**
+   * Calls var_export for each argument in succession.
+   */
+  function trace_export() {
+    $args = func_get_args();
+
+    ob_start();
+    foreach ($args as $arg) {
+      call_user_func('var_export', $arg);
+    }
+    file_put_contents($this->target, ob_get_clean(), FILE_APPEND);
+  }
+
+  /**
    * Emits a signal that the trace session is completing.
    */
   function finish_target() {
@@ -97,3 +123,14 @@ function trace() {
   $args = func_get_args();
   call_user_func_array(array($tracer, 'trace'), $args);
 }
+function trace_dump() {
+  global $tracer;
+  $args = func_get_args();
+  call_user_func_array(array($tracer, 'trace_dump'), $args);
+}
+function trace_export() {
+  global $tracer;
+  $args = func_get_args();
+  call_user_func_array(array($tracer, 'trace_export'), $args);
+}
+

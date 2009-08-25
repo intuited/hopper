@@ -14,6 +14,7 @@ find_zend();
 if ($_SERVER['HTTP_HOST'] == 'localhost') {
   require_once('trace/trace.php');
 }
+else require_once('trace/notrace.php');
 
 // Issue standard http headers that disable caching
 header("Expires: Sun, 19 Nov 1978 05:00:00 GMT");

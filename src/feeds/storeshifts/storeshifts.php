@@ -66,23 +66,99 @@ function storeshifts_get_calendar_event_feed() {
   ##~~  trace( '$preg_match_iso_8601: '."$preg_match_iso_8601  " . '$preg_replace_mask_time: '."$preg_replace_mask_time\n" );
   ##~~  trace( '$startDate: '."$startDate\n" );
   $startDate = preg_replace($preg_match_iso_8601, $preg_replace_mask_time, date('c'));
+  trace('$startDate: '.$startDate."\n");
   $query->setStartMin($startDate);
+  $query->setRecurrenceExpansionStart($startDate);
 
   // ...and before the end of the seventh day from today
-  $endDate = preg_replace($preg_match_iso_8601, $preg_replace_mask_time, date('c', time() + 3600*24*8));
+  $endDate = preg_replace($preg_match_iso_8601, $preg_replace_mask_time, date('c', time() + 3600*24*7));
+  trace('$endDate: '.$endDate."\n");
   $query->setStartMax($endDate);
+  $query->setRecurrenceExpansionEnd($endDate);
 
   // Sort them by start time
+  ##::  this doesn't seem to work.
   $query->setOrderby('starttime');
 
   $query->setUser('default');
   $query->setVisibility('private');
   $query->setProjection('full');
-  ##~~  // Poorly documented but would seem to eliminate non-recurring events.  ##!! confirm this
-  ##~~  $query->setSingleEvents(false);
+
+  // http://code.google.com/apis/calendar/docs/2.0/reference.html#Parameters
+  //   Setting this to true causes recurring events to be shown as single events.
+  //     The resulting events will not have recurrence pseudo-properties.
+  //   With it set to false, it's possible to iterate through recurrences of a recurring event via the ->when array.
+  $query->setSingleEvents(false);
   $eventFeed = $gdataCal->getCalendarEventFeed($query);
 
   return $eventFeed;
+}
+
+/**
+ * Return 'filled', 'unfilled', or NULL depending on whether $event represents an filled shift, unfilled shift, or non-shift.
+ * An event is considered to be a filled shift if either
+ *  - the following conditions are true (CASE 1):
+ *    - It is a non-recurring event
+ *    - It has an original event
+ *  - or the following conditions are true (CASE 2):
+ *    - It is a recurring event
+ *    - Its text contains "CSA" but not ("name" and "number")
+ * An event is considered to be an unfilled shift if the following conditions are true (CASE 3):
+ *  - It is a recurring event
+ *  - Its text contains "name" and "number"
+ *  - there is no non-recurring event for which this is the original event.
+ * Otherwise the event is considered to be a non-shift (CASE 4)
+ * 
+ * ##++ rewrite this algorithm so that it doesn't potentially check each event each time it needs the status of a recurring event.
+ * ##!! add logic to check all expanded recurrences of a recurring event.
+ */
+function storeshifts_get_filled_shift_status($event, $eventFeed) {
+
+  trace('$event->id: '.$event->id."\n");
+  trace('  $event->recurrence: '.(bool)$event->recurrence."\n");
+  ##~~  trace('  $event->originalEvent: ');
+  ##~~  trace_export($event->originalEvent);
+  ##~~  trace("\n");
+  if ($event->originalEvent) {
+    trace('  $event->originalEvent->href: '.$event->originalEvent->href."\n");
+  }
+  trace('  $event->title->text: '.$event->title->text."\n");
+  trace('  $event->when[0]->startTime: '.$event->when[0]->startTime."\n");
+  trace('  $event->when[0]->endTime:   '.$event->when[0]->endTime  ."\n");
+
+  if ($event->recurrence) {
+    trace('  $event->recurrence: true'."\n");
+    if ( (stripos($event->title->text, 'name') !== FALSE) && (stripos($event->title->text, 'number') !== FALSE) ) {
+      trace("  'name' and 'number' found in event title text.\n");
+      // If there is no non-recurring event for which this is the original event
+      foreach ($eventFeed as $specificEvent) {
+        if (!$specificEvent->recurrence && ($specificEvent->originalEvent->href == $event->id->text)) {
+          // CASE 1
+          trace("  found a specific event whose original event is this one.\n");
+          return 'filled';
+        }
+      }
+      // CASE 3
+      trace("  did not find a specific event whose original event is this one.\n");
+      return 'unfilled';
+    } else {
+      if (stripos($event->title->text, 'CSA') !== FALSE) {
+        // CASE 2
+        trace("  'CSA' found in event title text.\n");
+        return "filled";
+      }
+    }
+    trace("  neither title text string matched.\n");
+  } else {
+    trace('  $event->recurrence: false'."\n");
+    ##~~this is checked, less efficiently, in the section that returns case 3.
+    ##~~  if ($event->originalEvent) {
+    ##~~    // CASE 1
+    ##~~    return 'filled';
+    ##~~  }
+  }
+  // CASE 4
+  return NULL;
 }
 
 /**
@@ -103,24 +179,21 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
   else $shift_lastupdate = 'starttime';
 
   foreach($calendarEventFeed as $event) {
-    if ($event->recurrence) {
-      // Check whether or not the shift is filled
-      // The criteria here is simply (along with the fact that it is a recurring event)
-      //   that it contain the words "name" and "number".
-      $shift_filled = 
-        !(   preg_match('/name/i',   $event->title->text) 
-          && preg_match('/number/i', $event->title->text)
-        );
 
-      trace('$event->title->text: '.$event->title->text."\n"
-        , '$shift_filled: '.$shift_filled."\n"
-      );
+    // Check whether or not the shift is filled
+    // The criteria here is simply (along with the fact that it is a recurring event)
+    //   that it contain the words "name" and "number".
+    // passing the 'entry' property of the event feed will allow for sub-iterations of the entries
+    //   because it passes the underlying array element rather than the iterator object.
+    $filled_shift_status = storeshifts_get_filled_shift_status($event, $calendarEventFeed->entry);
+    trace('  $filled_shift_status: '.$filled_shift_status."\n");
 
+    if ($filled_shift_status) {
       // Convert the RFC 3339 formatted time into a numeric timestamp
       $start_time  = strtotime($event->when[0]->startTime);
-      trace('$start_time: '.date('c', $start_time)."\n");
+      trace('  $start_time: '.date('c', $start_time)."\n");
       $finish_time = strtotime($event->when[0]->endTime);
-      trace('$finish_time: '.date('c', $finish_time)."\n");
+      trace('  $finish_time: '.date('c', $finish_time)."\n");
 
       // Set up fields common to both filled and unfilled shifts
 
@@ -129,10 +202,13 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
 
       // This should link to the event for those logged in to gmail with access to the calendar.
       // It is used to anchor the 'title' element.
-      $entry['link'] = $event->id;
+      ##++find a way to translate the event ID, which is a Gdata feed URI, into a browseable URL that opens the event in a new tab/window
+      ##++  $entry['link'] = $event->id;
+      ##--for now just make the title of the RSS entry link to the main Google Calendar
+      $entry['link'] = 'https://www.google.com/calendar/render?tab=mc';
 
       // Enclose everything in a div that gives the filled status
-      $entry['description']  = '<div id="hopper-storeshifts-shift" class="hopper-' . $shift_filled? "filled" : "unfilled" . '">';
+      $entry['description']  = '<div id="hopper-storeshifts-shift" class="hopper-' . $filled_shift_status . '">';
 
       // Set the time in the description field.
       $entry['description']  = '  <div id="hopper-storeshifts-time" class="hopper-event-time">';
@@ -147,7 +223,7 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
       $entry['description'] .= '  </div> <!-- /#hopper-storeshifts-time -->';
 
       // If this shift is unfilled
-      if ($shift_filled) {
+      if ($filled_shift_status == 'unfilled') {
         $entry['title'] = "unfilled shift - click to sign up";
         $entry['description'] .= '<div id="hopper-storeshifts-description" class="hopper-event-description">';
         $entry['description'] .= "  This shift hasn't been filled yet.  If you're logged in to gmail and have added the calendar to your account, click on the link above to sign up.";
@@ -165,14 +241,6 @@ function storeshifts_parse_event_feed($calendarEventFeed) {
       $entry['description'] .= '</div>';
 
       $entries["$start_time"] = $entry;
-    }
-    else {
-      ##--  Test to see if the setSingleEvents method used in the previous function has the suspected effect.
-      trace('storeshifts_parse_event_feed: Non-recurring event was retrieved.'
-        . 'Start time: ' . $event->when[0]->startTime
-        ##~~  . '  Details:'."\n", $event
-        , "\n"
-      );
     }
   }
 
